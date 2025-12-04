@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Input, Switch, Button, message } from "antd";
 import { useForm } from "react-hook-form";
@@ -50,40 +50,12 @@ const BannerEdit = () => {
     fetchBanner();
   }, [id, reset]);
 
-  const uploadImage = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const token = localStorage.getItem("access_token");
-    const headers: HeadersInit = token
-      ? {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        }
-      : { Accept: "application/json" };
-
-    const res = await fetch("http://localhost:8000/api/admin/upload", {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-
-    if (!res.ok) {
-      throw new Error("Upload ảnh thất bại");
-    }
-    const data = await res.json();
-    return data.url;
-  };
-
   const onSubmit = async (formData: IBanner) => {
     try {
-      const images: Partial<IBannerImage & { url: string }>[] = [];
-      const hasNewImage = Boolean(imageFile || imageUrlInput.trim());
+      const images: Partial<IBannerImage & { url?: string; file?: File }>[] = [];
 
-      // Chỉ chọn 1 trong 2: ưu tiên file, nếu không có file thì dùng URL
       if (imageFile) {
-        const uploadedUrl = await uploadImage(imageFile);
-        images.push({ url: uploadedUrl, is_active: true });
+        images.push({ file: imageFile, is_active: true });
       } else if (imageUrlInput.trim()) {
         images.push({ url: imageUrlInput.trim(), is_active: true });
       }
@@ -94,8 +66,7 @@ const BannerEdit = () => {
         is_active: formData.is_active,
       };
 
-      // Chỉ gửi images nếu có ảnh mới
-      if (hasNewImage && images.length > 0) {
+      if (images.length > 0) {
         payload.images = images as IBannerImage[];
       }
 
@@ -108,6 +79,16 @@ const BannerEdit = () => {
     }
   };
 
+  const getPreviewSrc = () => {
+    if (imageFile) return URL.createObjectURL(imageFile);
+    if (imageUrlInput) {
+      return imageUrlInput.startsWith("http")
+        ? imageUrlInput
+        : `http://localhost:8000${imageUrlInput}`;
+    }
+    return "";
+  };
+
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -118,16 +99,16 @@ const BannerEdit = () => {
         {/* Khối upload/preview */}
         <div className="lg:col-span-1">
           <div className="border border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center h-full bg-gray-50">
-            {(imageFile || imageUrlInput) ? (
+            {getPreviewSrc() ? (
               <img
-                src={imageFile ? URL.createObjectURL(imageFile) : imageUrlInput}
+                src={getPreviewSrc()}
                 alt="Preview"
                 className="w-full h-48 object-cover rounded-md shadow-sm"
               />
             ) : (
               <div className="text-center text-gray-500">
                 <p className="font-medium mb-1">Ảnh banner (1 ảnh)</p>
-                <p className="text-sm">Kéo thả hoặc chọn ảnh, tối đa ~5MB</p>
+                <p className="text-sm">Có thể chọn file hoặc dán URL, tối đa 8MB</p>
               </div>
             )}
             <div className="w-full mt-4 space-y-2">
@@ -189,7 +170,7 @@ const BannerEdit = () => {
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button size="large" onClick={() => navigate("/admin/banner")}>
-              Huỷ
+              Hủy
             </Button>
             <Button type="primary" htmlType="submit" size="large" loading={isSubmitting}>
               Cập nhật
