@@ -1,18 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Image, Tag, Popconfirm, message } from "antd";
+import { Table, Button, Image, Tag, Popconfirm, message, Input, Space } from "antd";
 import { useNavigate } from "react-router-dom";
 import { deleteBanner, getAllBanners, IBanner } from "../../../api/bannerApi";
 
 const BannerList = () => {
   const [banners, setBanners] = useState<IBanner[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [keyword, setKeyword] = useState("");
   const navigate = useNavigate();
 
-  const fetchBanners = async () => {
+  const fetchBanners = async (pageParam = page, perPageParam = perPage, keywordParam = keyword) => {
     try {
       setLoading(true);
-      const res = await getAllBanners(1, 50);
+      const res = await getAllBanners(pageParam, perPageParam, keywordParam || undefined);
       setBanners(res.data || []);
+      setTotal(res.meta?.total || 0);
+      setPage(res.meta?.current_page || pageParam);
+      setPerPage(res.meta?.per_page || perPageParam);
     } catch (error) {
       message.error("Không thể lấy danh sách banner");
     } finally {
@@ -22,6 +29,7 @@ const BannerList = () => {
 
   useEffect(() => {
     fetchBanners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -39,15 +47,16 @@ const BannerList = () => {
       title: "Ảnh",
       width: 120,
       render: (record: IBanner) => {
-        const imageUrl = record.images?.[0]?.image_url;
+        const img = record.images?.[0];
+        const rawUrl = img?.image_url || img?.image;
 
-        if (!imageUrl) {
+        if (!rawUrl) {
           return <Image width={100} src="https://via.placeholder.com/100" alt="No image" />;
         }
 
-        const fullUrl = imageUrl.startsWith("http")
-          ? imageUrl
-          : `http://localhost:8000${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+        const fullUrl = rawUrl.startsWith("http")
+          ? rawUrl
+          : `http://localhost:8000${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`;
 
         return (
           <Image
@@ -83,11 +92,7 @@ const BannerList = () => {
       title: "Hiển thị",
       dataIndex: "is_active",
       render: (active: boolean) =>
-        active ? (
-          <Tag color="success">Đang hiển thị</Tag>
-        ) : (
-          <Tag color="error">Ẩn</Tag>
-        ),
+        active ? <Tag color="success">Đang hiển thị</Tag> : <Tag color="error">Ẩn</Tag>,
     },
     {
       title: "Hành động",
@@ -106,7 +111,7 @@ const BannerList = () => {
             title="Bạn có chắc chắn xoá banner này?"
             onConfirm={() => handleDelete(record.id)}
             okText="Xoá"
-            cancelText="Hủy"
+            cancelText="Huỷ"
           >
             <Button size="small" danger>
               Xoá
@@ -117,13 +122,37 @@ const BannerList = () => {
     },
   ];
 
+  const handleSearch = () => {
+    fetchBanners(1, perPage, keyword.trim());
+  };
+
   return (
     <div className="p-6 bg-white shadow-lg rounded-lg">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Danh sách Banner</h2>
-        <Button type="primary" size="large" onClick={() => navigate("/admin/banner/add")}>
-          + Thêm Banner Mới
-        </Button>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <Space.Compact className="w-full md:w-2/3">
+            <Input
+              placeholder="Tìm kiếm banner..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              onPressEnter={handleSearch}
+              allowClear
+              size="large"
+            />
+            <Button type="primary" onClick={handleSearch} size="large">
+              Search
+            </Button>
+          </Space.Compact>
+          <Button
+            type="primary"
+            size="large"
+            className="w-full md:w-auto h-[40px]"
+            onClick={() => navigate("/admin/banner/add")}
+          >
+            + Thêm Banner Mới
+          </Button>
+        </div>
       </div>
 
       <Table
@@ -132,10 +161,13 @@ const BannerList = () => {
         rowKey="id"
         loading={loading}
         pagination={{
-          pageSize: 10,
+          current: page,
+          pageSize: perPage,
+          total,
+          onChange: (p, ps) => fetchBanners(p, ps),
           showSizeChanger: true,
           showQuickJumper: true,
-          showTotal: (total) => `Tổng ${total} banner`,
+          showTotal: (t) => `Tổng ${t} banner`,
         }}
         scroll={{ x: 800 }}
       />

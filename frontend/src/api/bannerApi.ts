@@ -63,9 +63,15 @@ axiosInstance.interceptors.response.use(
 // ================== SERVICES ==================
 export const getAllBanners = async (
   page: number = 1,
-  perPage: number = 10
+  perPage: number = 10,
+  keyword?: string
 ): Promise<IPaginatedResponse<IBanner>> => {
-  const res = await axiosInstance.get(`/banners?page=${page}&per_page=${perPage}`);
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("per_page", String(perPage));
+  if (keyword) params.set("keyword", keyword);
+
+  const res = await axiosInstance.get(`/banners?${params.toString()}`);
   return res.data;
 };
 
@@ -112,8 +118,34 @@ export const updateBanner = async (
   id: number,
   data: Partial<IBanner>
 ): Promise<IBanner> => {
-  const res = await axiosInstance.put(`/banners/${id}`, data);
-  return res.data.data || res.data;
+  const hasFile =
+    Array.isArray((data as any).images) &&
+    (data as any).images.some((img: any) => img?.file instanceof File);
+
+  if (hasFile) {
+    const formData = new FormData();
+    if (data.title !== undefined) formData.append("title", String(data.title));
+    if (data.link !== undefined && data.link !== null) formData.append("link", String(data.link));
+    if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
+
+    (data as any).images.forEach((img: any, index: number) => {
+      if (img.file instanceof File) {
+        formData.append(`images[${index}][file]`, img.file);
+      }
+      if (img.url) {
+        formData.append(`images[${index}][url]`, img.url);
+      }
+      formData.append(`images[${index}][is_active]`, img.is_active ? "1" : "0");
+    });
+
+    const res = await axiosInstance.post(`/banners/${id}?_method=PUT`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data.data || res.data;
+  } else {
+    const res = await axiosInstance.put(`/banners/${id}`, data);
+    return res.data.data || res.data;
+  }
 };
 
 // DELETE BANNER
