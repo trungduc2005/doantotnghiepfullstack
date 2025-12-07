@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class BannerImage extends Model
 {
     use HasFactory;
-    const a = 999;
+    const b = 999;
 
     public $timestamps = false;
 
