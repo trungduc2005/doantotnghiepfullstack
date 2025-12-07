@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class BannerImage extends Model
 {
     use HasFactory;
+    const a = 999;
 
     public $timestamps = false;
 
@@ -40,6 +41,7 @@ class BannerImage extends Model
             return $this->image;
         }
 
-        return Storage::url($this->image);
+        // Files are stored on the "public" disk, so always build the URL from that disk
+        return Storage::disk('public')->url($this->image);
     }
 }
